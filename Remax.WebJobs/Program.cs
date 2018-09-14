@@ -1,30 +1,72 @@
 ﻿using Serilog;
-using Microsoft.Azure.WebJobs;
-using System;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
+using System.IO;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using FluentFTP;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 
 namespace Remax.WebJobs
 {
-    class Program
+    internal class Program
     {
 
-        static void Main(string[] args)
+        private static async Task Main(string[] args)
         {
+            var isService = !(Debugger.IsAttached || args.Contains("--console"));
+
             Log.Logger = new LoggerConfiguration()
                 .WriteTo.File("webjobs.log")
                 .CreateLogger();
 
-            var serviceProvider = CompositeRoot.ServiceProvider;
-            var configuration = new JobHostConfiguration();
-            configuration.UseDevelopmentSettings();
-            configuration.UseCore();
-            configuration.Queues.MaxPollingInterval = TimeSpan.FromSeconds(10);
-            configuration.Queues.VisibilityTimeout = TimeSpan.FromMinutes(1);
-            configuration.Queues.BatchSize = 1;
-            configuration.JobActivator = new CustomJobActivator(serviceProvider);
-            configuration.UseTimers();
+            var hostBuilder = new HostBuilder()
+                 .ConfigureHostConfiguration(configHost =>
+                 {
+                     configHost.SetBasePath(Directory.GetCurrentDirectory());
+                     configHost.AddJsonFile("hostsettings.json", optional: true);
+                     configHost.AddEnvironmentVariables(prefix: "PREFIX_");
+                     configHost.AddCommandLine(args);
+                 })
+                .ConfigureAppConfiguration((hostContext, configApp) =>
+                {
+                    configApp.SetBasePath(Directory.GetCurrentDirectory());
+                    configApp.AddJsonFile("appsettings.json", optional: true);
+                    configApp.AddJsonFile(
+                        $"appsettings.{hostContext.HostingEnvironment.EnvironmentName}.json",
+                        optional: true);
+                    configApp.AddEnvironmentVariables(prefix: "PREFIX_");
+                    configApp.AddCommandLine(args);
+                })
+                .ConfigureServices((hostContext, services) =>
+                {
+                    services.AddLogging();
+                    services.AddTransient<IFtpClient, FtpClient>();
+                    services.AddTransient<IFtpManager, FtpManager>();
+                    services.AddTransient<SyncSitesWebJob>();
+                    services.Configure<Dictionary<string, SiteSetting>>(hostContext.Configuration.GetSection("Sites"));
+                    services.AddHostedService<JobHostedService>();
+                })
+                .ConfigureLogging((hostContext, configLogging) =>
+                {
+                    configLogging.AddConsole();
+                    configLogging.AddDebug();
+                    configLogging.AddSerilog();
+                })
+                .UseConsoleLifetime();
 
-            var host = new JobHost(configuration);
-            host.RunAndBlock();
+
+            if (isService)
+            {
+                await hostBuilder.RunAsServiceAsync();
+            }
+            else
+            {
+                await hostBuilder.RunConsoleAsync();
+            }
         }
     }
 }

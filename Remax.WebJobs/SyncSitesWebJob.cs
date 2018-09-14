@@ -14,11 +14,15 @@ namespace Remax.WebJobs
     public class SyncSitesWebJob
     {
         private readonly ILogger<SyncSitesWebJob> _logger;
+        private readonly IFtpManager _ftpManager;
         private readonly Dictionary<string, SiteSetting> _sites;
 
-        public SyncSitesWebJob(ILogger<SyncSitesWebJob> logger, IOptions<Dictionary<string, SiteSetting>> options)
+        public SyncSitesWebJob(ILogger<SyncSitesWebJob> logger, 
+            IFtpManager ftpManager,
+            IOptions<Dictionary<string, SiteSetting>> options)
         {
             _logger = logger;
+            _ftpManager = ftpManager;
             _sites = options.Value;
         }
 
@@ -38,7 +42,6 @@ namespace Remax.WebJobs
         {
             var jObject = JObject.Parse(json);
             var sites = jObject["sites"].ToObject<string[]>();
-            Console.WriteLine(json);
         }
 
     }
