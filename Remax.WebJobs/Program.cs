@@ -7,7 +7,6 @@ namespace Remax.WebJobs
     class Program
     {
 
-
         static void Main(string[] args)
         {
             Log.Logger = new LoggerConfiguration()
@@ -15,9 +14,9 @@ namespace Remax.WebJobs
                 .CreateLogger();
 
             var serviceProvider = CompositeRoot.ServiceProvider;
-
-
             var configuration = new JobHostConfiguration();
+            configuration.UseDevelopmentSettings();
+            configuration.UseCore();
             configuration.Queues.MaxPollingInterval = TimeSpan.FromSeconds(10);
             configuration.Queues.VisibilityTimeout = TimeSpan.FromMinutes(1);
             configuration.Queues.BatchSize = 1;

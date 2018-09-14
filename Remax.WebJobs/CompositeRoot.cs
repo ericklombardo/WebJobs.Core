@@ -1,8 +1,9 @@
-﻿using Microsoft.Azure.WebJobs;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Remax.WebJobs
@@ -34,10 +35,12 @@ namespace Remax.WebJobs
                 .AddJsonFile("appsettings.json")
                 .AddJsonFile($"appsettings.{Environment.MachineName}.json", true)
                 .Build();
-
-            services.AddSingleton<IConfiguration>(provider => configuration);
-            services.AddTransient<CopySiteWebJob>();
+            services.AddLogging(configure => configure.AddConsole());
             services.AddLogging(configure => configure.AddSerilog());
+            services.AddSingleton<IConfiguration>(provider => configuration);
+            services.AddTransient<SyncSitesWebJob>();
+            services.Configure<Dictionary<string, SiteSetting>>(configuration.GetSection("Sites"));
+            
             Provider = services.BuildServiceProvider();
         }
     }
