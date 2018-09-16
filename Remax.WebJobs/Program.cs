@@ -5,10 +5,10 @@ using Microsoft.Extensions.Configuration;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using FluentFTP;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using FluentFTP;
 
 namespace Remax.WebJobs
 {

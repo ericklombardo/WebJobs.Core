@@ -25,12 +25,6 @@ namespace Remax.WebJobs
             _sites = options.Value;
         }
 
-        public Task TestJob([TimerTrigger("%ScheduleExpression%", RunOnStartup = true)] TimerInfo timerInfo, TextWriter log)
-        {
-            Console.WriteLine($"{DateTime.Now} - prueba");
-            return Task.CompletedTask;
-        }
-
         /// <summary>
         /// Sync one or more sites
         /// </summary>
@@ -42,9 +36,17 @@ namespace Remax.WebJobs
             var siteKeys = jObject["sites"].ToObject<string[]>();
 
             var tasks = _sites.Where(x => siteKeys.Contains(x.Key))
-                              .Select(site => _ftpManager.SyncDirectory(site.Value, site.Key));
+                              .Select(site => _ftpManager.SyncDirectory(site.Value, site.Key))
+                              .ToArray();
 
-            await Task.WhenAll(tasks);
+            _logger.LogInformation("Syncing ftp sites");
+            int total = 0, pageSize = 5;
+            while (total < tasks.Length)
+            {
+                await Task.WhenAll(tasks.Skip(total).Take(pageSize));
+                total += pageSize;
+            }
+            _logger.LogInformation("Finish syncing ftp sites");
         }
 
     }
