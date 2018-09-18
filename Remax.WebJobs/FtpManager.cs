@@ -1,9 +1,8 @@
 ﻿using FluentFTP;
 using Microsoft.Extensions.Logging;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+using Remax.WebJobs.Settings;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
 
 namespace Remax.WebJobs
 {
@@ -12,12 +11,20 @@ namespace Remax.WebJobs
 
         private readonly ILogger _logger;
         private readonly IFtpClient _client;
-        private List<FtpListItem> _ftpListItems = new List<FtpListItem>();
 
-        public FtpManager(ILogger<FtpManager> logger, IFtpClient client)
+
+        public FtpManager(ILogger<FtpManager> logger, IFtpClient client, IOptions<FtpSetting> ftpSetting)
         {
             _logger = logger;
             _client = client;
+
+            var settings = ftpSetting.Value;
+            _client.SocketPollInterval = settings.SocketPollInterval;
+            _client.ConnectTimeout = settings.ConnectTimeout;
+            _client.ReadTimeout = settings.ReadTimeout;
+            _client.DataConnectionConnectTimeout = settings.DataConnectionConnectTimeout;
+            _client.DataConnectionReadTimeout = settings.DataConnectionReadTimeout;
+            _client.DataConnectionType = settings.DataConnectionType;
         }
 
         public async Task SyncDirectory(SiteSetting site, string siteKey)
@@ -27,14 +34,8 @@ namespace Remax.WebJobs
             {
                 _client.Host = site.FtpServer;
                 _client.Credentials = new System.Net.NetworkCredential(site.UserName, site.Password);
-                _client.SocketPollInterval = 1000;
-                _client.ConnectTimeout = 2000;
-                _client.ReadTimeout = 2000;
-                _client.DataConnectionConnectTimeout = 2000;
-                _client.DataConnectionReadTimeout = 2000;
-                _client.DataConnectionType = FtpDataConnectionType.PASV;
                 await _client.ConnectAsync();
-                await DownloadFolderRecursive(site.RootFolder, site.DestinationFolder);
+                await _client.DownloadFolderRecursive(site.RootFolder, site.DestinationFolder);
                 _logger.LogInformation($"Finish sync {siteKey}");
             }
             catch (FtpException exc)
@@ -47,41 +48,6 @@ namespace Remax.WebJobs
                 {
                     await _client.DisconnectAsync();
                 }
-            }
-        }
-
-        protected async Task DownloadFolderRecursive(string source, string destination)
-        {
-            var entries = await _client.GetListingAsync(source);
-            foreach (var item in entries.Where(x => x.Type == FtpFileSystemObjectType.File))
-            {
-                try
-                {
-                    var result = await _client.DownloadFileAsync($"{destination}\\{item.Name}", item.FullName);
-                    if (!result)
-                        throw new FtpException($"Error downloading file {item.FullName}");
-                }
-                catch (FtpException exc)
-                {
-                    if (exc.InnerException is FtpCommandException ftpCommandException)
-                    {
-                        _logger.LogError(ftpCommandException, $"Error downloading file {item.FullName}. Response type {ftpCommandException.ResponseType}");
-                    }
-                    else
-                    {
-                        _logger.LogError($"Error downloading file {item.FullName}", exc);
-                    }
-                }
-            }
-
-            foreach (var item in entries.Where(x => x.Type == FtpFileSystemObjectType.Directory))
-            {
-                var newDestination = $@"{destination}\{item.Name}";
-                if (!Directory.Exists(newDestination))
-                {
-                    Directory.CreateDirectory(newDestination);
-                }
-                await DownloadFolderRecursive($"{source}/{item.Name}", newDestination);
             }
         }
 

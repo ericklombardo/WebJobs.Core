@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using FluentFTP;
+using Remax.WebJobs.Jobs;
+using Remax.WebJobs.Settings;
 
 namespace Remax.WebJobs
 {
@@ -27,18 +29,18 @@ namespace Remax.WebJobs
                  .ConfigureHostConfiguration(configHost =>
                  {
                      configHost.SetBasePath(Directory.GetCurrentDirectory());
-                     configHost.AddJsonFile("hostsettings.json", optional: true);
-                     configHost.AddEnvironmentVariables(prefix: "PREFIX_");
+                     configHost.AddJsonFile("hostsettings.json", true);
+                     configHost.AddEnvironmentVariables("PREFIX_");
                      configHost.AddCommandLine(args);
                  })
                 .ConfigureAppConfiguration((hostContext, configApp) =>
                 {
                     configApp.SetBasePath(Directory.GetCurrentDirectory());
-                    configApp.AddJsonFile("appsettings.json", optional: true);
+                    configApp.AddJsonFile("appsettings.json", true);
                     configApp.AddJsonFile(
                         $"appsettings.{hostContext.HostingEnvironment.EnvironmentName}.json",
-                        optional: true);
-                    configApp.AddEnvironmentVariables(prefix: "PREFIX_");
+                        true);
+                    configApp.AddEnvironmentVariables("PREFIX_");
                     configApp.AddCommandLine(args);
                 })
                 .ConfigureServices((hostContext, services) =>
@@ -46,8 +48,9 @@ namespace Remax.WebJobs
                     services.AddLogging();
                     services.AddTransient<IFtpClient, FtpClient>();
                     services.AddTransient<IFtpManager, FtpManager>();
-                    services.AddTransient<SyncSitesWebJob>();
+                    services.AddTransient<SyncSitesJob>();
                     services.Configure<Dictionary<string, SiteSetting>>(hostContext.Configuration.GetSection("Sites"));
+                    services.Configure<FtpSetting>(hostContext.Configuration.GetSection("FtpSetting"));
                     services.AddHostedService<JobHostedService>();
                 })
                 .ConfigureLogging((hostContext, configLogging) =>

@@ -2,21 +2,20 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
-using System;
+using Remax.WebJobs.Settings;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Remax.WebJobs
+namespace Remax.WebJobs.Jobs
 {
-    public class SyncSitesWebJob
+    public class SyncSitesJob
     {
         private readonly ILogger _logger;
         private readonly IFtpManager _ftpManager;
         private readonly Dictionary<string, SiteSetting> _sites;
 
-        public SyncSitesWebJob(ILogger<SyncSitesWebJob> logger, 
+        public SyncSitesJob(ILogger<SyncSitesJob> logger, 
             IFtpManager ftpManager,
             IOptions<Dictionary<string, SiteSetting>> options)
         {
@@ -30,7 +29,7 @@ namespace Remax.WebJobs
         /// </summary>
         /// <param name="json">Json object with the string array with the name of the sites to sync</param>
         /// <returns></returns>
-        public async Task SyncSites([QueueTrigger("%QueueName%")] string json)
+        public async Task SyncSites([QueueTrigger("%SyncSitesQueue%")] string json)
         {
             var jObject = JObject.Parse(json);
             var siteKeys = jObject["sites"].ToObject<string[]>();

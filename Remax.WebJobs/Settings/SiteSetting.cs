@@ -1,4 +1,4 @@
-﻿namespace Remax.WebJobs
+﻿namespace Remax.WebJobs.Settings
 {
     public class SiteSetting
     {

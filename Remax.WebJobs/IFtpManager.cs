@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using Remax.WebJobs.Settings;
+using System.Threading.Tasks;
 
 namespace Remax.WebJobs
 {
