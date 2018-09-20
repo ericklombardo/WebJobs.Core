@@ -11,6 +11,8 @@ using System.Linq;
 using FluentFTP;
 using Remax.WebJobs.Jobs;
 using Remax.WebJobs.Settings;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.WebJobs.Host;
 
 namespace Remax.WebJobs
 {
@@ -26,13 +28,20 @@ namespace Remax.WebJobs
                 .CreateLogger();
 
             var hostBuilder = new HostBuilder()
-                 .ConfigureHostConfiguration(configHost =>
+                .ConfigureHostConfiguration(configHost =>
                  {
                      configHost.SetBasePath(Directory.GetCurrentDirectory());
                      configHost.AddJsonFile("hostsettings.json", true);
                      configHost.AddEnvironmentVariables("PREFIX_");
                      configHost.AddCommandLine(args);
                  })
+                .ConfigureWebJobs(b =>
+                {
+                    b.AddAzureStorageCoreServices()
+                        .AddAzureStorage()
+                        .AddTimers()
+                        .AddExecutionContextBinding();
+                })
                 .ConfigureAppConfiguration((hostContext, configApp) =>
                 {
                     configApp.SetBasePath(Directory.GetCurrentDirectory());
@@ -46,12 +55,14 @@ namespace Remax.WebJobs
                 .ConfigureServices((hostContext, services) =>
                 {
                     services.AddLogging();
-                    services.AddTransient<IFtpClient, FtpClient>();
-                    services.AddTransient<IFtpManager, FtpManager>();
-                    services.AddTransient<SyncSitesJob>();
+                    services.AddSingleton<IPowerShellScriptRunner, PowerShellScriptRunner>();
+                    services.AddSingleton<IJobActivator, CustomJobActivator>();
+                    services.AddScoped<IFtpClient, FtpClient>();
+                    services.AddScoped<IFtpManager, FtpManager>();
+                    services.AddScoped<SyncSitesJob>();
+                    services.AddScoped<SyncDatabaseJob>();
                     services.Configure<Dictionary<string, SiteSetting>>(hostContext.Configuration.GetSection("Sites"));
                     services.Configure<FtpSetting>(hostContext.Configuration.GetSection("FtpSetting"));
-                    services.AddHostedService<JobHostedService>();
                 })
                 .ConfigureLogging((hostContext, configLogging) =>
                 {

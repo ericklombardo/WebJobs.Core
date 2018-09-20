@@ -29,7 +29,7 @@ namespace Remax.WebJobs.Jobs
         /// </summary>
         /// <param name="json">Json object with the string array with the name of the sites to sync</param>
         /// <returns></returns>
-        public async Task SyncSites([QueueTrigger("%SyncSitesQueue%")] string json)
+        public async Task SyncSites(/*[QueueTrigger("%SyncSitesQueue%")]*/ string json)
         {
             var jObject = JObject.Parse(json);
             var siteKeys = jObject["sites"].ToObject<string[]>();
