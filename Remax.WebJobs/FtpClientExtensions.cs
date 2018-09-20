@@ -14,7 +14,16 @@ namespace Remax.WebJobs
             {
                 try
                 {
-                    var result = await client.DownloadFileAsync($"{destination}\\{item.Name}", item.FullName);
+                    var downloadFile = true;
+                    var file = $"{destination}\\{item.Name}";
+                    if (File.Exists(file))
+                    {
+                        var fileInfo = new FileInfo(file);
+                        downloadFile = fileInfo.LastWriteTimeUtc < item.Modified;
+                    }
+                    if (!downloadFile) continue;
+
+                    var result = await client.DownloadFileAsync(file, item.FullName);
                     if (!result)
                         throw new FtpException($"Error downloading file {item.FullName}");
                 }
