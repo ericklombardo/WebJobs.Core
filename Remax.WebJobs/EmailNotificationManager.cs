@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Linq;
+using System.Net;
 using System.Net.Mail;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
@@ -27,9 +28,12 @@ namespace Remax.WebJobs
             };            
         }
 
-        public async void SitesUpdated()
+        public async void SitesUpdated(SiteUpdatedDetail[] detail)
         {
-            var template = @"Se han actualizado los sitios";
+            var sites = string.Join("<br/>", detail.Select(x => x.AppService));
+            var template = $@"Se han actualizado los sitios<br/><br/>
+                            {sites}
+                            ";
 
             MailMessage mailMessage = new MailMessage
             {

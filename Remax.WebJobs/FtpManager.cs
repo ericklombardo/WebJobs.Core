@@ -35,7 +35,7 @@ namespace Remax.WebJobs
                 _client.Host = site.FtpServer;
                 _client.Credentials = new System.Net.NetworkCredential(site.UserName, site.Password);
                 await _client.ConnectAsync();
-                await _client.DownloadFolderRecursive(site.RootFolder, site.DestinationFolder);
+                await _client.DownloadFolderRecursive(site.RootFolder[0], site.DestinationFolder);
                 _logger.LogInformation($"Finish sync {siteKey}");
             }
             catch (FtpException exc)

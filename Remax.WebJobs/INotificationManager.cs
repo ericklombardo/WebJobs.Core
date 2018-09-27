@@ -2,6 +2,6 @@
 {
     public interface INotificationManager
     {
-        void SitesUpdated();
+        void SitesUpdated(SiteUpdatedDetail[] detail);
     }
 }

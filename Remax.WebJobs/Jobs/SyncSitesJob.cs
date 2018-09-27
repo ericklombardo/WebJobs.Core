@@ -14,18 +14,20 @@ namespace Remax.WebJobs.Jobs
     {
         private readonly ILogger _logger;
         private readonly IFtpManager _ftpManager;
+        private readonly INotificationManager _notificationManager;
         private readonly IHostingEnvironment _hostingEnvironment;
         private readonly IPowerShellScriptRunner _powerShellScriptRunner;
         private readonly Dictionary<string, SiteSetting> _sites;
 
         public SyncSitesJob(ILogger<SyncSitesJob> logger, 
             IFtpManager ftpManager,
-            IOptions<Dictionary<string, SiteSetting>> options, IPowerShellScriptRunner powerShellScriptRunner, IHostingEnvironment hostingEnvironment)
+            IOptions<Dictionary<string, SiteSetting>> options, IPowerShellScriptRunner powerShellScriptRunner, IHostingEnvironment hostingEnvironment, INotificationManager notificationManager)
         {
             _logger = logger;
             _ftpManager = ftpManager;
             _powerShellScriptRunner = powerShellScriptRunner;
             _hostingEnvironment = hostingEnvironment;
+            _notificationManager = notificationManager;
             _sites = options.Value;
         }
 
@@ -57,17 +59,26 @@ namespace Remax.WebJobs.Jobs
         {
             _logger.LogInformation("Begin Syncing ftp sites");
 
-            var settings = _sites["ballon-regionalsys"];
-            _powerShellScriptRunner.ExecuteScript("remaxgetsite.ps1", 
-                new Dictionary<string, string>
-                {
-                    {"appServiceName", "ballon-regionalsys" },
-                    {"username", "$ballon-regionalsys" },
-                    {"password", settings.Password },
-                    {"modulepath", $@"{_hostingEnvironment.ContentRootPath}scripts\PSWebDeploy\PSWebDeploy.psm1" }
-                });
+            var modulePath = $@"{_hostingEnvironment.ContentRootPath}scripts\PSWebDeploy\PSWebDeploy.psm1";
+            var detailUpdated = new List<SiteUpdatedDetail>();
+            foreach (var setting in _sites)
+            {
+                _logger.LogInformation($"Begin Syncing {setting.Key}");
+                _powerShellScriptRunner.ExecuteScript("remaxgetsite.ps1",
+                    new Dictionary<string, string>
+                    {
+                        {"appServiceName", setting.Key},
+                        {"username", $"${setting.Key}"},
+                        {"password", setting.Value.Password},
+                        {"modulepath", modulePath},
+                        {"root", setting.Value.RootFolder[0]}
+                    });
+                _logger.LogInformation($"End Syncing {setting.Key}");
+                detailUpdated.Add(new SiteUpdatedDetail{AppService = setting.Key});
+            }
 
             _logger.LogInformation("Finish syncing ftp sites");
+            _notificationManager.SitesUpdated(detailUpdated.ToArray());
         }
 
     }
