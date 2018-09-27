@@ -6,6 +6,7 @@ using Remax.WebJobs.Settings;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
 
 namespace Remax.WebJobs.Jobs
 {
@@ -13,14 +14,18 @@ namespace Remax.WebJobs.Jobs
     {
         private readonly ILogger _logger;
         private readonly IFtpManager _ftpManager;
+        private readonly IHostingEnvironment _hostingEnvironment;
+        private readonly IPowerShellScriptRunner _powerShellScriptRunner;
         private readonly Dictionary<string, SiteSetting> _sites;
 
         public SyncSitesJob(ILogger<SyncSitesJob> logger, 
             IFtpManager ftpManager,
-            IOptions<Dictionary<string, SiteSetting>> options)
+            IOptions<Dictionary<string, SiteSetting>> options, IPowerShellScriptRunner powerShellScriptRunner, IHostingEnvironment hostingEnvironment)
         {
             _logger = logger;
             _ftpManager = ftpManager;
+            _powerShellScriptRunner = powerShellScriptRunner;
+            _hostingEnvironment = hostingEnvironment;
             _sites = options.Value;
         }
 
@@ -45,6 +50,23 @@ namespace Remax.WebJobs.Jobs
                 await Task.WhenAll(tasks.Skip(total).Take(pageSize));
                 total += pageSize;
             }
+            _logger.LogInformation("Finish syncing ftp sites");
+        }
+
+        public void SyncSitesPs([QueueTrigger("%SyncSitesQueue%")] string json)
+        {
+            _logger.LogInformation("Begin Syncing ftp sites");
+
+            var settings = _sites["ballon-regionalsys"];
+            _powerShellScriptRunner.ExecuteScript("remaxgetsite.ps1", 
+                new Dictionary<string, string>
+                {
+                    {"appServiceName", "ballon-regionalsys" },
+                    {"username", "$ballon-regionalsys" },
+                    {"password", settings.Password },
+                    {"modulepath", $@"{_hostingEnvironment.ContentRootPath}scripts\PSWebDeploy\PSWebDeploy.psm1" }
+                });
+
             _logger.LogInformation("Finish syncing ftp sites");
         }
 

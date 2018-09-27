@@ -4,6 +4,6 @@ namespace Remax.WebJobs
 {
     public interface IPowerShellScriptRunner
     {
-        void Execute(string scriptFileName, IDictionary scriptParams);
+        void ExecuteScript(string scriptFileName, IDictionary scriptParams);
     }
 }

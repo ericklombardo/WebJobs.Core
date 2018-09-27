@@ -1,7 +1,4 @@
-﻿using System.Threading.Tasks;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Host;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Azure.WebJobs;
 
 namespace Remax.WebJobs.Jobs
 {
@@ -15,14 +12,10 @@ namespace Remax.WebJobs.Jobs
             _powerShellScriptRunner = powerShellScriptRunner;
         }
 
-        public async Task SyncDatabase(/*[QueueTrigger("%SyncDatabaseQueue%")]*/ string json)
+        public  void SyncDatabase([QueueTrigger("%SyncDatabaseQueue%")] string json)
         {
-
+            _powerShellScriptRunner.ExecuteScript("exportdb.ps1", null);
         }
 
-        public void SyncDatabase([TimerTrigger("* 0 7 * * 1-5", RunOnStartup = true)]TimerInfo myTimer, ILogger log)
-        {
-            _powerShellScriptRunner.Execute("exportdb.ps1", null);
-        }
     }
 }

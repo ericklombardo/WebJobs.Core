@@ -56,6 +56,7 @@ namespace Remax.WebJobs
                 {
                     services.AddLogging();
                     services.AddSingleton<IPowerShellScriptRunner, PowerShellScriptRunner>();
+                    services.AddSingleton<INotificationManager, EmailNotificationManager>();
                     services.AddSingleton<IJobActivator, CustomJobActivator>();
                     services.AddScoped<IFtpClient, FtpClient>();
                     services.AddScoped<IFtpManager, FtpManager>();
@@ -63,6 +64,7 @@ namespace Remax.WebJobs
                     services.AddScoped<SyncDatabaseJob>();
                     services.Configure<Dictionary<string, SiteSetting>>(hostContext.Configuration.GetSection("Sites"));
                     services.Configure<FtpSetting>(hostContext.Configuration.GetSection("FtpSetting"));
+                    services.Configure<EmailSetting>(hostContext.Configuration.GetSection("EmailSetting"));
                 })
                 .ConfigureLogging((hostContext, configLogging) =>
                 {
