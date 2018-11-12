@@ -28,11 +28,16 @@ namespace Remax.WebJobs
             };            
         }
 
-        public async void SitesUpdated(SiteUpdatedDetail[] detail)
+        public async void SitesUpdated(SiteUpdatedDetail[] sitesSuccesUpdated,
+            SiteUpdatedDetail[] sitesFailed
+            )
         {
-            var sites = string.Join("<br/>", detail.Select(x => x.AppService));
+            var sitesSuccededJoin = string.Join("<br/>", sitesSuccesUpdated.Select(x => x.AppService));
+            var sitesFailedJoin = string.Join("<br/>", sitesFailed.Select(x => x.AppService));
             var template = $@"Se han actualizado los sitios<br/><br/>
-                            {sites}
+                            {sitesSuccededJoin}<br/><br/>
+                            Los siguientes sitios han fallado:<br/><br/>
+                            {sitesFailedJoin}
                             ";
 
             MailMessage mailMessage = new MailMessage

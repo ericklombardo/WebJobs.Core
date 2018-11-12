@@ -1,4 +1,5 @@
-﻿using Microsoft.Azure.WebJobs;
+﻿using System;
+using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
@@ -60,25 +61,34 @@ namespace Remax.WebJobs.Jobs
             _logger.LogInformation("Begin Syncing ftp sites");
 
             var modulePath = $@"{_hostingEnvironment.ContentRootPath}scripts\PSWebDeploy\PSWebDeploy.psm1";
-            var detailUpdated = new List<SiteUpdatedDetail>();
+            var detailSuccessUpdated = new List<SiteUpdatedDetail>();
+            var detailFailed = new List<SiteUpdatedDetail>();
             foreach (var setting in _sites)
             {
-                _logger.LogInformation($"Begin Syncing {setting.Key}");
-                _powerShellScriptRunner.ExecuteScript("remaxgetsite.ps1",
-                    new Dictionary<string, string>
-                    {
-                        {"appServiceName", setting.Key},
-                        {"username", $"${setting.Key}"},
-                        {"password", setting.Value.Password},
-                        {"modulepath", modulePath},
-                        {"root", setting.Value.RootFolder[0]}
-                    });
-                _logger.LogInformation($"End Syncing {setting.Key}");
-                detailUpdated.Add(new SiteUpdatedDetail{AppService = setting.Key});
+                try
+                {
+                    _logger.LogInformation($"Begin Syncing {setting.Key}");
+                    _powerShellScriptRunner.ExecuteScript("remaxgetsite.ps1",
+                        new Dictionary<string, string>
+                        {
+                            {"appServiceName", setting.Key},
+                            {"username", $"${setting.Key}"},
+                            {"password", setting.Value.Password},
+                            {"modulepath", modulePath},
+                            {"root", setting.Value.RootFolder[0]}
+                        });
+                    _logger.LogInformation($"End Syncing {setting.Key}");
+                    detailSuccessUpdated.Add(new SiteUpdatedDetail {AppService = setting.Key});
+                }
+                catch (Exception exc)
+                {
+                    detailFailed.Add(new SiteUpdatedDetail { AppService = setting.Key });
+                    _logger.LogError(exc, $"Error updating site {setting.Key}");
+                }
             }
 
             _logger.LogInformation("Finish syncing ftp sites");
-            _notificationManager.SitesUpdated(detailUpdated.ToArray());
+            _notificationManager.SitesUpdated(detailSuccessUpdated.ToArray(), detailFailed.ToArray());
         }
 
     }
