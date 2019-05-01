@@ -32,7 +32,7 @@ namespace Remax.WebJobs
             SiteUpdatedDetail[] sitesFailed
             )
         {
-            var sitesSuccededJoin = string.Join("<br/>", sitesSuccesUpdated.Select(x => x.AppService));
+            var sitesSuccededJoin = string.Join("<br/>", sitesSuccesUpdated.Select(x => $"<a href='{x.Url}'>{x.AppService}</a>"));
             var sitesFailedJoin = string.Join("<br/>", sitesFailed.Select(x => x.AppService));
             var template = $@"Se han actualizado los sitios<br/><br/>
                             {sitesSuccededJoin}<br/><br/>

@@ -5,8 +5,10 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using Remax.WebJobs.Settings;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
 namespace Remax.WebJobs.Jobs
@@ -17,18 +19,20 @@ namespace Remax.WebJobs.Jobs
         private readonly IFtpManager _ftpManager;
         private readonly INotificationManager _notificationManager;
         private readonly IHostingEnvironment _hostingEnvironment;
+        private readonly string _webConfigsPath;
         private readonly IPowerShellScriptRunner _powerShellScriptRunner;
         private readonly Dictionary<string, SiteSetting> _sites;
 
         public SyncSitesJob(ILogger<SyncSitesJob> logger, 
             IFtpManager ftpManager,
-            IOptions<Dictionary<string, SiteSetting>> options, IPowerShellScriptRunner powerShellScriptRunner, IHostingEnvironment hostingEnvironment, INotificationManager notificationManager)
+            IOptions<Dictionary<string, SiteSetting>> options, IPowerShellScriptRunner powerShellScriptRunner, IHostingEnvironment hostingEnvironment, INotificationManager notificationManager, IConfiguration configuration)
         {
             _logger = logger;
             _ftpManager = ftpManager;
             _powerShellScriptRunner = powerShellScriptRunner;
             _hostingEnvironment = hostingEnvironment;
             _notificationManager = notificationManager;
+            _webConfigsPath = configuration["WebConfigs"];
             _sites = options.Value;
         }
 
@@ -58,8 +62,7 @@ namespace Remax.WebJobs.Jobs
 
         public void SyncSitesPs([QueueTrigger("%SyncSitesQueue%")] string json)
         {
-            _logger.LogInformation("Begin Syncing ftp sites");
-
+            _logger.LogInformation("Begin Syncing ftp sites");            
             var modulePath = $@"{_hostingEnvironment.ContentRootPath}scripts\PSWebDeploy\PSWebDeploy.psm1";
             var detailSuccessUpdated = new List<SiteUpdatedDetail>();
             var detailFailed = new List<SiteUpdatedDetail>();
@@ -77,8 +80,17 @@ namespace Remax.WebJobs.Jobs
                             {"modulepath", modulePath},
                             {"root", setting.Value.RootFolder[0]}
                         });
+                    _logger.LogInformation($"Replacing web.config for site {setting.Key}");
+                    File.Copy(
+                        $@"{_webConfigsPath}\{setting.Key}.config",
+                        $@"C:\inetpub\wwwroot\{setting.Key}\Web.config", 
+                        true);
                     _logger.LogInformation($"End Syncing {setting.Key}");
-                    detailSuccessUpdated.Add(new SiteUpdatedDetail {AppService = setting.Key});
+                    detailSuccessUpdated.Add(new SiteUpdatedDetail
+                    {
+                        AppService = setting.Key,
+                        Url = setting.Value.Url
+                    });
                 }
                 catch (Exception exc)
                 {
