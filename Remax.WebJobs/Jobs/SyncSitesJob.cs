@@ -20,6 +20,8 @@ namespace Remax.WebJobs.Jobs
         private readonly INotificationManager _notificationManager;
         private readonly IHostingEnvironment _hostingEnvironment;
         private readonly string _webConfigsPath;
+        private readonly string _basePath;
+        private readonly bool _replaceWebConfigs;
         private readonly IPowerShellScriptRunner _powerShellScriptRunner;
         private readonly Dictionary<string, SiteSetting> _sites;
 
@@ -33,6 +35,8 @@ namespace Remax.WebJobs.Jobs
             _hostingEnvironment = hostingEnvironment;
             _notificationManager = notificationManager;
             _webConfigsPath = configuration["WebConfigs"];
+            _basePath = configuration["BasePath"];
+            _replaceWebConfigs = bool.Parse(configuration["ReplaceWebConfigs"]);
             _sites = options.Value;
         }
 
@@ -66,7 +70,7 @@ namespace Remax.WebJobs.Jobs
             var modulePath = $@"{_hostingEnvironment.ContentRootPath}scripts\PSWebDeploy\PSWebDeploy.psm1";
             var detailSuccessUpdated = new List<SiteUpdatedDetail>();
             var detailFailed = new List<SiteUpdatedDetail>();
-            foreach (var setting in _sites)
+            foreach (var setting in _sites.Where(x => x.Value.Enable))
             {
                 try
                 {
@@ -78,13 +82,17 @@ namespace Remax.WebJobs.Jobs
                             {"username", $"${setting.Key}"},
                             {"password", setting.Value.Password},
                             {"modulepath", modulePath},
+                            {"wwwroot", _basePath},
                             {"root", setting.Value.RootFolder[0]}
                         });
-                    _logger.LogInformation($"Replacing web.config for site {setting.Key}");
-                    File.Copy(
-                        $@"{_webConfigsPath}\{setting.Key}.config",
-                        $@"C:\inetpub\wwwroot\{setting.Key}\Web.config", 
-                        true);
+                    if (_replaceWebConfigs)
+                    {
+                        _logger.LogInformation($"Replacing web.config for site {setting.Key}");
+                        File.Copy(
+                            $@"{_basePath}\{_webConfigsPath}\{setting.Key}.config",
+                            $@"{_basePath}\{setting.Key}\Web.config",
+                            true);
+                    }
                     _logger.LogInformation($"End Syncing {setting.Key}");
                     detailSuccessUpdated.Add(new SiteUpdatedDetail
                     {
