@@ -9,7 +9,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 
 namespace Remax.WebJobs.Jobs
 {
@@ -18,7 +17,7 @@ namespace Remax.WebJobs.Jobs
         private readonly ILogger _logger;
         private readonly IFtpManager _ftpManager;
         private readonly INotificationManager _notificationManager;
-        private readonly IHostingEnvironment _hostingEnvironment;
+        private readonly Microsoft.Extensions.Hosting.IHostEnvironment _hostingEnvironment;
         private readonly string _webConfigsPath;
         private readonly string _basePath;
         private readonly bool _replaceWebConfigs;
@@ -27,7 +26,9 @@ namespace Remax.WebJobs.Jobs
 
         public SyncSitesJob(ILogger<SyncSitesJob> logger, 
             IFtpManager ftpManager,
-            IOptions<Dictionary<string, SiteSetting>> options, IPowerShellScriptRunner powerShellScriptRunner, IHostingEnvironment hostingEnvironment, INotificationManager notificationManager, IConfiguration configuration)
+            IOptions<Dictionary<string, SiteSetting>> options, 
+            IPowerShellScriptRunner powerShellScriptRunner,
+            Microsoft.Extensions.Hosting.IHostEnvironment hostingEnvironment, INotificationManager notificationManager, IConfiguration configuration)
         {
             _logger = logger;
             _ftpManager = ftpManager;
@@ -67,7 +68,7 @@ namespace Remax.WebJobs.Jobs
         public void SyncSitesPs([QueueTrigger("%SyncSitesQueue%")] string json)
         {
             _logger.LogInformation("Begin Syncing ftp sites");            
-            var modulePath = $@"{_hostingEnvironment.ContentRootPath}scripts\PSWebDeploy\PSWebDeploy.psm1";
+            var modulePath = $@"{_hostingEnvironment.ContentRootPath}\scripts\PSWebDeploy\PSWebDeploy.psm1";
             var detailSuccessUpdated = new List<SiteUpdatedDetail>();
             var detailFailed = new List<SiteUpdatedDetail>();
             foreach (var setting in _sites.Where(x => x.Value.Enable))
