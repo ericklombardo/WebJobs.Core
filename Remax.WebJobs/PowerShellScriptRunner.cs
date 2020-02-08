@@ -9,6 +9,7 @@ namespace Remax.WebJobs
     {
 
         private readonly ILogger _logger;
+        public bool Success { get; private set; }
 
         public PowerShellScriptRunner(ILogger<PowerShellScriptRunner> logger)
         {
@@ -17,27 +18,27 @@ namespace Remax.WebJobs
 
         public void ExecuteScript(string scriptFileName, IDictionary scriptParams)
         {
-            using (var ps = PowerShell.Create())
+            Success = true;
+            using var psInstance = PowerShell.Create();
+            _logger.LogInformation($"Executing scripts {scriptFileName}");
+            psInstance.Streams.Error.DataAdded += (sender, args) =>
             {
-                _logger.LogInformation($"Executing scripts {scriptFileName}");
-                ps.Streams.Error.DataAdded += (sender, args) =>
+                foreach (var errorRecord in (PSDataCollection<ErrorRecord>) sender)
                 {
-                    foreach (var errorRecord in (PSDataCollection<ErrorRecord>) sender)
-                    {
-                        _logger.LogError(errorRecord.Exception, $"Error executing {scriptFileName}");
-                    }
-                };
-                var results = ps
-                    .AddScript(File.ReadAllText($"scripts\\{scriptFileName}"))
-                    .AddParameters(scriptParams)
-                    .Invoke();
-
-                foreach (var item in results)
-                {
-                    if(item == null) continue;
-                    _logger.LogInformation($"{item}");
+                    Success = false;
+                    _logger.LogError(errorRecord.Exception, $"Error executing {scriptFileName}");
                 }
-            }
+            };
+            var result = new PSDataCollection<PSObject>();
+            result.DataAdded += (sender, args) =>
+            {
+                var output = ((PSDataCollection<PSObject>)sender)[args.Index];
+                _logger.LogInformation($"OUTPUT: {output}");
+            };
+            psInstance
+                .AddScript(File.ReadAllText($"scripts\\{scriptFileName}"))
+                .AddParameters(scriptParams)
+                .Invoke(null, result);
         }
 
     }

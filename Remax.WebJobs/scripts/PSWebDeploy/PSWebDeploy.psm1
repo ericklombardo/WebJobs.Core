@@ -286,7 +286,8 @@ function Sync-Website {
 		}
 		catch
 		{
-			$PSCmdlet.ThrowTerminatingError($_)
+			# $PSCmdlet.ThrowTerminatingError($_)
+			$PSCmdlet.WriteError($_)
 		}
 	}
 }

@@ -53,6 +53,7 @@ namespace Remax.WebJobs
                     services.AddSingleton<IPowerShellScriptRunner, PowerShellScriptRunner>();
                     services.AddSingleton<INotificationManager, EmailNotificationManager>();
                     services.AddSingleton<IJobActivator, CustomJobActivator>();
+                    services.AddSingleton<CheckRunner>();
                     services.AddScoped<IFtpClient, FtpClient>();
                     services.AddScoped<IFtpManager, FtpManager>();
                     services.AddScoped<SyncSitesJob>();

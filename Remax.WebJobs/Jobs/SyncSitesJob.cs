@@ -21,23 +21,30 @@ namespace Remax.WebJobs.Jobs
         private readonly string _webConfigsPath;
         private readonly string _basePath;
         private readonly bool _replaceWebConfigs;
+        private readonly int _webDeployTimeout;
         private readonly IPowerShellScriptRunner _powerShellScriptRunner;
         private readonly Dictionary<string, SiteSetting> _sites;
+        private readonly CheckRunner _checkRunner;
 
         public SyncSitesJob(ILogger<SyncSitesJob> logger, 
             IFtpManager ftpManager,
             IOptions<Dictionary<string, SiteSetting>> options, 
             IPowerShellScriptRunner powerShellScriptRunner,
-            Microsoft.Extensions.Hosting.IHostEnvironment hostingEnvironment, INotificationManager notificationManager, IConfiguration configuration)
+            Microsoft.Extensions.Hosting.IHostEnvironment hostingEnvironment, 
+            INotificationManager notificationManager, 
+            IConfiguration configuration, 
+            CheckRunner checkRunner)
         {
             _logger = logger;
             _ftpManager = ftpManager;
             _powerShellScriptRunner = powerShellScriptRunner;
             _hostingEnvironment = hostingEnvironment;
             _notificationManager = notificationManager;
+            _checkRunner = checkRunner;
             _webConfigsPath = configuration["WebConfigs"];
             _basePath = configuration["BasePath"];
             _replaceWebConfigs = bool.Parse(configuration["ReplaceWebConfigs"]);
+            _webDeployTimeout = configuration.GetValue<int>("WebDeployTimeout");
             _sites = options.Value;
         }
 
@@ -67,49 +74,68 @@ namespace Remax.WebJobs.Jobs
 
         public void SyncSitesPs([QueueTrigger("%SyncSitesQueue%")] string json)
         {
-            _logger.LogInformation("Begin Syncing ftp sites");            
-            var modulePath = $@"{_hostingEnvironment.ContentRootPath}\scripts\PSWebDeploy\PSWebDeploy.psm1";
-            var detailSuccessUpdated = new List<SiteUpdatedDetail>();
-            var detailFailed = new List<SiteUpdatedDetail>();
-            foreach (var setting in _sites.Where(x => x.Value.Enable))
-            {
-                try
-                {
-                    _logger.LogInformation($"Begin Syncing {setting.Key}");
-                    _powerShellScriptRunner.ExecuteScript("remaxgetsite.ps1",
-                        new Dictionary<string, string>
-                        {
-                            {"appServiceName", setting.Key},
-                            {"username", $"${setting.Key}"},
-                            {"password", setting.Value.Password},
-                            {"modulepath", modulePath},
-                            {"wwwroot", _basePath},
-                            {"root", setting.Value.RootFolder[0]}
-                        });
-                    if (_replaceWebConfigs)
-                    {
-                        _logger.LogInformation($"Replacing web.config for site {setting.Key}");
-                        File.Copy(
-                            $@"{_basePath}\{_webConfigsPath}\{setting.Key}.config",
-                            $@"{_basePath}\{setting.Key}\Web.config",
-                            true);
-                    }
-                    _logger.LogInformation($"End Syncing {setting.Key}");
-                    detailSuccessUpdated.Add(new SiteUpdatedDetail
-                    {
-                        AppService = setting.Key,
-                        Url = setting.Value.Url
-                    });
-                }
-                catch (Exception exc)
-                {
-                    detailFailed.Add(new SiteUpdatedDetail { AppService = setting.Key });
-                    _logger.LogError(exc, $"Error updating site {setting.Key}");
-                }
-            }
+            if (_checkRunner.IsRunning) return;
 
-            _logger.LogInformation("Finish syncing ftp sites");
-            _notificationManager.SitesUpdated(detailSuccessUpdated.ToArray(), detailFailed.ToArray());
+            try
+            {
+                _checkRunner.IsRunning = true;
+                _logger.LogInformation("Begin Syncing ftp sites");
+                var modulePath = $@"{_hostingEnvironment.ContentRootPath}\scripts\PSWebDeploy\PSWebDeploy.psm1";
+                var detailSuccessUpdated = new List<SiteUpdatedDetail>();
+                var detailFailed = new List<SiteUpdatedDetail>();
+                foreach (var setting in _sites.Where(x => x.Value.Enable))
+                {
+                    try
+                    {
+                        _logger.LogInformation($"Begin Syncing {setting.Key}");
+                        _powerShellScriptRunner.ExecuteScript("remaxgetsite.ps1",
+                            new Dictionary<string, object>
+                            {
+                                {"appServiceName", setting.Key},
+                                {"username", $"${setting.Key}"},
+                                {"password", setting.Value.Password},
+                                {"modulepath", modulePath},
+                                {"wwwroot", _basePath},
+                                {"root", setting.Value.RootFolder[0]},
+                                {"timeout", _webDeployTimeout}
+                            });
+                        
+                        if(!_powerShellScriptRunner.Success)  throw new Exception("Error running sync site script");
+
+                        if (_replaceWebConfigs)
+                        {
+                            _logger.LogInformation($"Replacing web.config for site {setting.Key}");
+                            File.Copy(
+                                $@"{_basePath}\{_webConfigsPath}\{setting.Key}.config",
+                                $@"{_basePath}\{setting.Key}\Web.config",
+                                true);
+                        }
+
+                        _logger.LogInformation($"End Syncing {setting.Key}");
+                        detailSuccessUpdated.Add(new SiteUpdatedDetail
+                        {
+                            AppService = setting.Key,
+                            Url = setting.Value.Url
+                        });
+                    }
+                    catch (Exception exc)
+                    {
+                        detailFailed.Add(new SiteUpdatedDetail {AppService = setting.Key});
+                        _logger.LogError(exc, $"Error updating site {setting.Key}");
+                    }
+                }
+
+                _logger.LogInformation("Finish syncing ftp sites");
+                _notificationManager.SitesUpdated(detailSuccessUpdated.ToArray(), detailFailed.ToArray());
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "Error syncing sites");
+            }
+            finally
+            {
+                _checkRunner.IsRunning = false;
+            }
         }
 
     }
